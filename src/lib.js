@@ -1,8 +1,8 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
 
-const path = require('node:path');
-const fsPromises = require('node:fs/promises');
+const path = require('path');
+const fsPromises = require('fs/promises');
 
 const getReleaseURL = async (octokit, context) => {
   // Get owner and repo from context of payload that triggered the action

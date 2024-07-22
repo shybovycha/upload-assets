@@ -10234,6 +10234,119 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
+/***/ 6804:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const core = __nccwpck_require__(2186);
+const github = __nccwpck_require__(5438);
+
+const path = __nccwpck_require__(1017);
+const fsPromises = __nccwpck_require__(3292);
+
+const getReleaseURL = async (octokit, context) => {
+  // Get owner and repo from context of payload that triggered the action
+  const { owner, repo } = context.repo;
+
+  // Get the tag name from the triggered action
+  const tagName = context.ref;
+
+  // This removes the 'refs/tags' portion of the string, i.e. from 'refs/tags/v1.10.15' to 'v1.10.15'
+  const tag = tagName.replace('refs/tags/', '');
+
+  // Get a release from the tag name
+  // API Documentation: https://developer.github.com/v3/repos/releases/#create-a-release
+  // Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-create-release
+  const getReleaseResponse = await octokit.repos.getReleaseByTag({
+    owner,
+    repo,
+    tag
+  });
+
+  const uploadURL = getReleaseResponse.data.upload_url;
+
+  return uploadURL;
+};
+
+const run = async () => {
+  try {
+    // Get authenticated GitHub client (Ocktokit): https://github.com/actions/toolkit/tree/master/packages/github#usage
+    const octokit = github.getOctokit(process.env.GITHUB_TOKEN);
+
+    const uploadUrl = await getReleaseURL(octokit, github.context);
+
+    // Get the inputs from the workflow file: https://github.com/actions/toolkit/tree/master/packages/core#inputsoutputs
+    const assetPathsSt = core.getInput('asset_paths', { required: true });
+
+    const assetPaths = JSON.parse(assetPathsSt);
+
+    if (!assetPaths || assetPaths.length == 0) {
+      core.setFailed('asset_paths must contain a JSON array of quoted paths');
+      return;
+    }
+
+    const paths = await Promise.all(
+      assetPaths.flatMap(async (assetPath) => {
+        if (assetPath.includes('*')) {
+          return await fsPromises.glob(assetPath, { nodir: true });
+        } else {
+          return assetPath;
+        }
+      })
+    );
+
+    core.debug(`Expanded paths: ${paths}`);
+
+    const downloadURLs = await Promise.all(
+      paths.map(async (asset) => {
+        // Determine content-length for header to upload asset
+        const stats = await fsPromises.stat(asset);
+        const contentLength = stats.size;
+        const contentType = 'binary/octet-stream';
+
+        // Setup headers for API call, see Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-upload-release-asset for more information
+        const headers = {
+          'content-type': contentType,
+          'content-length': contentLength,
+        };
+
+        const assetName = path.basename(asset);
+
+        core.info(`Uploading asset ${assetName}`);
+
+        // Upload a release asset
+        // API Documentation: https://developer.github.com/v3/repos/releases/#upload-a-release-asset
+        // Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-upload-release-asset
+
+        const content = await fsPromises.readFile(asset);
+
+        const uploadAssetResponse = await octokit.repos.uploadReleaseAsset({
+          url: uploadUrl,
+          headers,
+          name: assetName,
+          data: content,
+        });
+
+        // Get the browser_download_url for the uploaded release asset from the response
+        const {
+          data: { browser_download_url: browserDownloadUrl }
+        } = uploadAssetResponse;
+
+        // Set the output variable for use by other actions: https://github.com/actions/toolkit/tree/master/packages/core#inputsoutputs
+        return browserDownloadUrl;
+      })
+    );
+
+    core.setOutput('browser_download_urls', JSON.stringify(downloadURLs));
+  } catch (error) {
+    core.setFailed(error.message);
+  }
+}
+
+module.exports = run;
+
+
+/***/ }),
+
 /***/ 2877:
 /***/ ((module) => {
 
@@ -10271,6 +10384,14 @@ module.exports = require("events");
 
 "use strict";
 module.exports = require("fs");
+
+/***/ }),
+
+/***/ 3292:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("fs/promises");
 
 /***/ }),
 
@@ -10403,149 +10524,17 @@ module.exports = JSON.parse('[[[0,44],"disallowed_STD3_valid"],[[45,46],"valid"]
 /******/ 	}
 /******/ 	
 /************************************************************************/
-/******/ 	/* webpack/runtime/make namespace object */
-/******/ 	(() => {
-/******/ 		// define __esModule on exports
-/******/ 		__nccwpck_require__.r = (exports) => {
-/******/ 			if(typeof Symbol !== 'undefined' && Symbol.toStringTag) {
-/******/ 				Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
-/******/ 			}
-/******/ 			Object.defineProperty(exports, '__esModule', { value: true });
-/******/ 		};
-/******/ 	})();
-/******/ 	
 /******/ 	/* webpack/runtime/compat */
 /******/ 	
 /******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
 /******/ 	
 /************************************************************************/
 var __webpack_exports__ = {};
-// This entry need to be wrapped in an IIFE because it need to be in strict mode.
+// This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
 (() => {
-"use strict";
-// ESM COMPAT FLAG
-__nccwpck_require__.r(__webpack_exports__);
+const run = __nccwpck_require__(6804);
 
-// EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
-var core = __nccwpck_require__(2186);
-// EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
-var github = __nccwpck_require__(5438);
-;// CONCATENATED MODULE: external "node:path"
-const external_node_path_namespaceObject = require("node:path");
-;// CONCATENATED MODULE: external "node:fs/promises"
-const promises_namespaceObject = require("node:fs/promises");
-;// CONCATENATED MODULE: ./src/lib.js
-
-
-
-
-
-
-const getReleaseURL = async (octokit, context) => {
-  // Get owner and repo from context of payload that triggered the action
-  const { owner, repo } = context.repo;
-
-  // Get the tag name from the triggered action
-  const tagName = context.ref;
-
-  // This removes the 'refs/tags' portion of the string, i.e. from 'refs/tags/v1.10.15' to 'v1.10.15'
-  const tag = tagName.replace('refs/tags/', '');
-
-  // Get a release from the tag name
-  // API Documentation: https://developer.github.com/v3/repos/releases/#create-a-release
-  // Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-create-release
-  const getReleaseResponse = await octokit.repos.getReleaseByTag({
-    owner,
-    repo,
-    tag
-  });
-
-  const uploadURL = getReleaseResponse.data.upload_url;
-
-  return uploadURL;
-};
-
-const run = async () => {
-  try {
-    // Get authenticated GitHub client (Ocktokit): https://github.com/actions/toolkit/tree/master/packages/github#usage
-    const octokit = github.getOctokit(process.env.GITHUB_TOKEN);
-
-    const uploadUrl = await getReleaseURL(octokit, github.context);
-
-    // Get the inputs from the workflow file: https://github.com/actions/toolkit/tree/master/packages/core#inputsoutputs
-    const assetPathsSt = core.getInput('asset_paths', { required: true });
-
-    const assetPaths = JSON.parse(assetPathsSt);
-
-    if (!assetPaths || assetPaths.length == 0) {
-      core.setFailed('asset_paths must contain a JSON array of quoted paths');
-      return;
-    }
-
-    const paths = await Promise.all(
-      assetPaths.flatMap(async (assetPath) => {
-        if (assetPath.includes('*')) {
-          return await promises_namespaceObject.glob(assetPath, { nodir: true });
-        } else {
-          return assetPath;
-        }
-      })
-    );
-
-    core.debug(`Expanded paths: ${paths}`);
-
-    const downloadURLs = await Promise.all(
-      paths.map(async (asset) => {
-        // Determine content-length for header to upload asset
-        const stats = await promises_namespaceObject.stat(asset);
-        const contentLength = stats.size;
-        const contentType = 'binary/octet-stream';
-
-        // Setup headers for API call, see Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-upload-release-asset for more information
-        const headers = {
-          'content-type': contentType,
-          'content-length': contentLength,
-        };
-
-        const assetName = external_node_path_namespaceObject.basename(asset);
-
-        core.info(`Uploading asset ${assetName}`);
-
-        // Upload a release asset
-        // API Documentation: https://developer.github.com/v3/repos/releases/#upload-a-release-asset
-        // Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-upload-release-asset
-
-        const content = await promises_namespaceObject.readFile(asset);
-
-        const uploadAssetResponse = await octokit.repos.uploadReleaseAsset({
-          url: uploadUrl,
-          headers,
-          name: assetName,
-          data: content,
-        });
-
-        // Get the browser_download_url for the uploaded release asset from the response
-        const {
-          data: { browser_download_url: browserDownloadUrl }
-        } = uploadAssetResponse;
-
-        // Set the output variable for use by other actions: https://github.com/actions/toolkit/tree/master/packages/core#inputsoutputs
-        return browserDownloadUrl;
-      })
-    );
-
-    core.setOutput('browser_download_urls', JSON.stringify(downloadURLs));
-  } catch (error) {
-    core.setFailed(error.message);
-  }
-}
-
-/* harmony default export */ const lib = (run);
-
-;// CONCATENATED MODULE: ./src/index.js
-
-
-lib();
+run();
 
 })();
 
