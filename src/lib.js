@@ -46,7 +46,7 @@ const run = async () => {
       return;
     }
 
-    core.info(`Expanded paths: ${paths}`);
+    core.debug(`Expanded paths: ${paths}`);
 
     const preUploadAssets = await Promise.all(
       paths.map(async (asset) => {
@@ -76,7 +76,7 @@ const run = async () => {
 
     const downloadURLs = await Promise.all(
       preUploadAssets.map(async (asset) => {
-        core.info(`Uploading asset ${asset.assetName}`);
+        core.info(`Uploading asset ${asset.name}`);
 
         // Upload a release asset
         // API Documentation: https://developer.github.com/v3/repos/releases/#upload-a-release-asset
