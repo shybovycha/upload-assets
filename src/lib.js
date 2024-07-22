@@ -1,8 +1,8 @@
-const core = require('@actions/core');
-const github = require('@actions/github');
+import * as core from '@actions/core';
+import * as github from '@actions/github';
 
-const path = require('node:path');
-const fsPromises = require('node:fs/promises');
+import { basename } from 'node:path';
+import { glob, stat } from 'node:fs/promises';
 
 const getReleaseURL = async (octokit, context) => {
   // Get owner and repo from context of payload that triggered the action
@@ -48,7 +48,7 @@ const run = async () => {
     const paths = await Promise.all(
       assetPaths.flatMap(async (assetPath) => {
         if (assetPath.includes('*')) {
-          return await fsPromises.glob(assetPath, { nodir: true });
+          return await glob(assetPath, { nodir: true });
         } else {
           return assetPath;
         }
@@ -60,7 +60,7 @@ const run = async () => {
     const downloadURLs = await Promise.all(
       paths.map(async (asset) => {
         // Determine content-length for header to upload asset
-        const stats = await fsPromises.stat(asset);
+        const stats = await stat(asset);
         const contentLength = stats.size;
         const contentType = 'binary/octet-stream';
 
@@ -70,7 +70,7 @@ const run = async () => {
           'content-length': contentLength,
         };
 
-        const assetName = path.basename(asset);
+        const assetName = basename(asset);
 
         core.info(`Uploading asset ${assetName}`);
 
@@ -100,4 +100,4 @@ const run = async () => {
   }
 }
 
-module.exports = run;
+export default run;

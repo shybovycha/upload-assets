@@ -1,6 +1,6 @@
-name: 'Upload Release Assets'
+name: 'shybovycha/upload-assets'
 description: 'Upload release assets to an existing release in your repository, including glob support'
-author: 'alexellis'
+author: 'shybovycha'
 inputs:
   asset_paths:
     description: 'The paths to the assets you want to upload as a JSON array. You can use a glob pattern.'
