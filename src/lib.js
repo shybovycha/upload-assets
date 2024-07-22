@@ -1,7 +1,6 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
-
-const glob = require('glob');
+const glob = require('@actions/glob');
 
 const path = require('path');
 const fsPromises = require('fs/promises');
@@ -39,7 +38,8 @@ const run = async () => {
 
     // Get the inputs from the workflow file: https://github.com/actions/toolkit/tree/master/packages/core#inputsoutputs
     const assetPathsStr = core.getInput('asset_paths', { required: true });
-    const paths = await glob.glob(assetPathsStr.split('\n'));
+    const globber = await glob.create(assetPathsStr);
+    const paths = await globber.glob();
 
     if (paths.length === 0) {
       core.setFailed(`Could not find any artifacts with paths: ${assetPathsStr}`);
