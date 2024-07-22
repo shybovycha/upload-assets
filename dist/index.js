@@ -10465,6 +10465,44 @@ const getReleaseURL = async (octokit, context) => {
   return uploadURL;
 };
 
+const getDownloadUrl = async (assetPath, uploadUrl) => {
+  // Determine content-length for header to upload asset
+  const stats = await promises_namespaceObject.stat(asset);
+  const contentLength = stats.size;
+  const contentType = 'binary/octet-stream';
+
+  // Setup headers for API call, see Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-upload-release-asset for more information
+  const headers = {
+    'content-type': contentType,
+    'content-length': contentLength,
+  };
+
+  const assetName = external_node_path_namespaceObject.basename(asset);
+
+  core.info(`Uploading asset ${assetName}`);
+
+  // Upload a release asset
+  // API Documentation: https://developer.github.com/v3/repos/releases/#upload-a-release-asset
+  // Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-upload-release-asset
+
+  const content = await promises_namespaceObject.readFile(asset);
+
+  const uploadAssetResponse = await octokit.repos.uploadReleaseAsset({
+    url: uploadUrl,
+    headers,
+    name: assetName,
+    data: content,
+  });
+
+  // Get the browser_download_url for the uploaded release asset from the response
+  const {
+    data: { browser_download_url: browserDownloadUrl }
+  } = uploadAssetResponse;
+
+  // Set the output variable for use by other actions: https://github.com/actions/toolkit/tree/master/packages/core#inputsoutputs
+  return browserDownloadUrl;
+};
+
 const run = async () => {
   try {
     // Get authenticated GitHub client (Ocktokit): https://github.com/actions/toolkit/tree/master/packages/github#usage
@@ -10485,7 +10523,7 @@ const run = async () => {
     const paths = await Promise.all(
       assetPaths.flatMap(async (assetPath) => {
         if (assetPath.includes('*')) {
-          return await (0,promises_namespaceObject.glob)(assetPath, { nodir: true });
+          return await promises_namespaceObject.glob(assetPath, { nodir: true });
         } else {
           return assetPath;
         }
@@ -10495,40 +10533,7 @@ const run = async () => {
     core.debug(`Expanded paths: ${paths}`);
 
     const downloadURLs = await Promise.all(
-      paths.map(async (asset) => {
-        // Determine content-length for header to upload asset
-        const stats = await (0,promises_namespaceObject.stat)(asset);
-        const contentLength = stats.size;
-        const contentType = 'binary/octet-stream';
-
-        // Setup headers for API call, see Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-upload-release-asset for more information
-        const headers = {
-          'content-type': contentType,
-          'content-length': contentLength,
-        };
-
-        const assetName = (0,external_node_path_namespaceObject.basename)(asset);
-
-        core.info(`Uploading asset ${assetName}`);
-
-        // Upload a release asset
-        // API Documentation: https://developer.github.com/v3/repos/releases/#upload-a-release-asset
-        // Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-upload-release-asset
-        const uploadAssetResponse = await octokit.repos.uploadReleaseAsset({
-          url: uploadUrl,
-          headers,
-          name: assetName,
-          data: fs.readFileSync(asset),
-        });
-
-        // Get the browser_download_url for the uploaded release asset from the response
-        const {
-          data: { browser_download_url: browserDownloadUrl }
-        } = uploadAssetResponse;
-
-        // Set the output variable for use by other actions: https://github.com/actions/toolkit/tree/master/packages/core#inputsoutputs
-        return browserDownloadUrl;
-      })
+      paths.map(asset => getDownloadUrl(asset, uploadUrl))
     );
 
     core.setOutput('browser_download_urls', JSON.stringify(downloadURLs));
