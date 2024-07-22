@@ -1,8 +1,8 @@
-import * as core from '@actions/core';
-import * as github from '@actions/github';
+const core = require('@actions/core');
+const github = require('@actions/github');
 
-import * as path from 'node:path';
-import * as fsPromises from 'node:fs/promises';
+const path = require('node:path');
+const fsPromises = require('node:fs/promises');
 
 const getReleaseURL = async (octokit, context) => {
   // Get owner and repo from context of payload that triggered the action
@@ -103,4 +103,4 @@ const run = async () => {
   }
 }
 
-export default run;
+module.exports = run;

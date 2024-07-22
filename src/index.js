@@ -1,3 +1,3 @@
-import run from './lib';
+const run = require('./lib');
 
 run();
