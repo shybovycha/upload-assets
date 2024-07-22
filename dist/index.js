@@ -12731,7 +12731,7 @@ const run = async () => {
 
     core.debug(`Expanded paths: ${paths}`);
 
-    const preUploadAssets = await Promise.all(
+    const uploadRequests = await Promise.all(
       paths.map(async (asset) => {
         // Determine content-length for header to upload asset
         const stats = await fsPromises.stat(asset);
@@ -12758,7 +12758,7 @@ const run = async () => {
     );
 
     const downloadURLs = await Promise.all(
-      preUploadAssets.map(async (asset) => {
+      uploadRequests.map(async (asset) => {
         core.info(`Uploading asset ${asset.name}`);
 
         // Upload a release asset
