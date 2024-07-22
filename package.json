@@ -1,6 +1,6 @@
 {
   "name": "@alexellis/upload-assets",
-  "version": "1.0.1",
+  "version": "0.4.4",
   "description": "GitHub Action to upload multiple assets to a release",
   "main": "index.js",
   "engines": {
@@ -23,7 +23,7 @@
   "dependencies": {
     "@actions/core": "^1.2.6",
     "@actions/github": "^4.0.0",
-    "@actions/glob": "^0.4.0"
+    "glob": "^11.0.0"
   },
   "devDependencies": {
     "@vercel/ncc": "^0.38.1"
