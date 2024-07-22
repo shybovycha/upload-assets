@@ -1,8 +1,8 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 
-import { basename } from 'node:path';
-import { glob, stat } from 'node:fs/promises';
+import * as path from 'node:path';
+import * as fsPromises from 'node:fs/promises';
 
 const getReleaseURL = async (octokit, context) => {
   // Get owner and repo from context of payload that triggered the action
@@ -48,7 +48,7 @@ const run = async () => {
     const paths = await Promise.all(
       assetPaths.flatMap(async (assetPath) => {
         if (assetPath.includes('*')) {
-          return await glob(assetPath, { nodir: true });
+          return await fsPromises.glob(assetPath, { nodir: true });
         } else {
           return assetPath;
         }
@@ -60,7 +60,7 @@ const run = async () => {
     const downloadURLs = await Promise.all(
       paths.map(async (asset) => {
         // Determine content-length for header to upload asset
-        const stats = await stat(asset);
+        const stats = await fsPromises.stat(asset);
         const contentLength = stats.size;
         const contentType = 'binary/octet-stream';
 
@@ -70,18 +70,21 @@ const run = async () => {
           'content-length': contentLength,
         };
 
-        const assetName = basename(asset);
+        const assetName = path.basename(asset);
 
         core.info(`Uploading asset ${assetName}`);
 
         // Upload a release asset
         // API Documentation: https://developer.github.com/v3/repos/releases/#upload-a-release-asset
         // Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-upload-release-asset
+
+        const content = await fsPromises.readFile(asset);
+
         const uploadAssetResponse = await octokit.repos.uploadReleaseAsset({
           url: uploadUrl,
           headers,
           name: assetName,
-          data: fs.readFileSync(asset),
+          data: content,
         });
 
         // Get the browser_download_url for the uploaded release asset from the response
