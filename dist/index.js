@@ -10239,6 +10239,7 @@ function wrappy (fn, cb) {
 
 const core = __nccwpck_require__(2186);
 const github = __nccwpck_require__(5438);
+const glob = __nccwpck_require__(1147);
 
 const path = __nccwpck_require__(1017);
 const fsPromises = __nccwpck_require__(3292);
@@ -10275,28 +10276,13 @@ const run = async () => {
     const uploadUrl = await getReleaseURL(octokit, github.context);
 
     // Get the inputs from the workflow file: https://github.com/actions/toolkit/tree/master/packages/core#inputsoutputs
-    const assetPathsSt = core.getInput('asset_paths', { required: true });
-
-    const assetPaths = JSON.parse(assetPathsSt);
-
-    if (!assetPaths || assetPaths.length == 0) {
-      core.setFailed('asset_paths must contain a JSON array of quoted paths');
-      return;
-    }
-
-    const paths = await Promise.all(
-      assetPaths.flatMap(async (assetPath) => {
-        if (assetPath.includes('*')) {
-          return await fsPromises.glob(assetPath, { nodir: true });
-        } else {
-          return assetPath;
-        }
-      })
-    );
+    const assetPathsStr = core.getInput('asset_paths', { required: true });
+    const globber = await glob.create(assetPathsStr);
+    const paths = await globber.glob();
 
     core.debug(`Expanded paths: ${paths}`);
 
-    const downloadURLs = await Promise.all(
+    const preUploadAssets = await Promise.all(
       paths.map(async (asset) => {
         // Determine content-length for header to upload asset
         const stats = await fsPromises.stat(asset);
@@ -10311,20 +10297,25 @@ const run = async () => {
 
         const assetName = path.basename(asset);
 
-        core.info(`Uploading asset ${assetName}`);
-
-        // Upload a release asset
-        // API Documentation: https://developer.github.com/v3/repos/releases/#upload-a-release-asset
-        // Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-upload-release-asset
-
         const content = await fsPromises.readFile(asset);
 
-        const uploadAssetResponse = await octokit.repos.uploadReleaseAsset({
+        return {
           url: uploadUrl,
           headers,
           name: assetName,
           data: content,
-        });
+        };
+      })
+    );
+
+    const downloadURLs = await Promise.all(
+      preUploadAssets.map(async (asset) => {
+        core.info(`Uploading asset ${asset.assetName}`);
+
+        // Upload a release asset
+        // API Documentation: https://developer.github.com/v3/repos/releases/#upload-a-release-asset
+        // Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-upload-release-asset
+        const uploadAssetResponse = await octokit.repos.uploadReleaseAsset(asset);
 
         // Get the browser_download_url for the uploaded release asset from the response
         const {
@@ -10343,6 +10334,14 @@ const run = async () => {
 }
 
 module.exports = run;
+
+
+/***/ }),
+
+/***/ 1147:
+/***/ ((module) => {
+
+module.exports = eval("require")("@actions/glob");
 
 
 /***/ }),
