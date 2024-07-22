@@ -41,7 +41,12 @@ const run = async () => {
     const globber = await glob.create(assetPathsStr);
     const paths = await globber.glob();
 
-    core.debug(`Expanded paths: ${paths}`);
+    if (paths.length === 0) {
+      core.setFailed(`Could not find any artifacts with paths: ${assetPathsStr}`);
+      return;
+    }
+
+    core.info(`Expanded paths: ${paths}`);
 
     const preUploadAssets = await Promise.all(
       paths.map(async (asset) => {
